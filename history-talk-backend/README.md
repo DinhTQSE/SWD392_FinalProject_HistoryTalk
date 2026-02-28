@@ -8,10 +8,13 @@ Backend API cho nền tảng học Lịch sử History Talk. Quản lý Historic
 
 ## 🎯 Main Features
 
-- ✅ **5 REST Endpoints**: GET, POST, PUT, DELETE operations
+- ✅ **Historical Context CRUD**: 5 endpoints (GET, POST, PUT, DELETE)
+- ✅ **Document Management**: Upload, update, delete historical documents (PDF, TXT, DOCX)
+- ✅ **Full-Text Search**: Search contexts and documents by keyword
 - ✅ **JWT Authentication**: Bearer token security
 - ✅ **Role-Based Access**: Staff & Admin roles
-- ✅ **Pagination & Search**: Advanced filtering
+- ✅ **Soft Delete Pattern**: Data never permanently deleted
+- ✅ **Audit Trail**: Track who uploaded/modified documents
 - ✅ **Input Validation**: Comprehensive rules
 - ✅ **Global Error Handling**: Consistent responses
 - ✅ **API Docs**: OpenAPI 3.0 + Swagger UI
@@ -220,13 +223,144 @@ X-Staff-Role: STAFF
 
 ---
 
-## 📋 Validation Rules
+## � Historical Context Document Endpoints
 
-| Field | Rules |
-|-------|-------|
-| name | 3-100 chars, unique, required |
-| description | 10-5000 chars, required |
-| status | DRAFT, PUBLISHED, ARCHIVED (optional) |
+### Base URL: `http://localhost:8080/v1/historical-documents`
+
+#### 1. Get All Documents
+```http
+GET /v1/historical-documents
+```
+**Query**: Optional  
+**Headers**: None required  
+**Returns**: JSON array of all active documents (sorted by upload date, newest first)
+
+**Response (200 OK)**:
+```json
+[
+  {
+    "docId": "doc-uuid-001",
+    "contextId": "context-uuid-001",
+    "staffId": "staff_001",
+    "title": "Primary Source Document",
+    "content": "Raw extracted text from PDF/TXT/DOCX...",
+    "fileFormat": "PDF",
+    "fileSize": 2048576,
+    "uploadDate": "2024-01-15T10:30:00Z",
+    "updatedDate": "2024-01-15T10:30:00Z",
+    "isDeleted": false
+  }
+]
+```
+
+#### 2. Get Document by ID
+```http
+GET /v1/historical-documents/{docId}
+```
+**Headers**: None required  
+**Returns**: Single document details
+
+#### 3. Get Documents by Context
+```http
+GET /v1/historical-documents/context/{contextId}
+```
+**Headers**: None required  
+**Returns**: All documents for a specific historical context
+
+#### 4. Get Documents by Staff (Audit Trail)
+```http
+GET /v1/historical-documents/staff/{staffId}
+```
+**Headers**: None required  
+**Returns**: All documents uploaded by a specific staff member
+
+#### 5. Search Documents
+```http
+GET /v1/historical-documents/search?keyword=keyword
+```
+**Query Parameters**:
+- `keyword` (optional): Search in title or content
+
+**Headers**: None required  
+**Returns**: Matching documents
+
+#### 6. Upload Document (Staff/Admin Only)
+```http
+POST /v1/historical-documents
+Content-Type: application/json
+X-Staff-Id: staff_001
+
+{
+  "contextId": "context-uuid-001",
+  "title": "Document Title",
+  "content": "Full text extracted from PDF/TXT/DOCX...",
+  "fileFormat": "PDF",
+  "fileSize": 2048576
+}
+```
+**Formats**: PDF, TXT, DOCX  
+**Max Size**: 10MB  
+**Headers**: X-Staff-Id (required)  
+**Returns**: Created document (201)
+
+**Response (201 Created)**:
+```json
+{
+  "success": true,
+  "message": "Document uploaded successfully",
+  "data": {
+    "docId": "doc-uuid-001",
+    "contextId": "context-uuid-001",
+    "staffId": "staff_001",
+    "title": "Document Title",
+    "content": "Full text...",
+    "fileFormat": "PDF",
+    "fileSize": 2048576,
+    "uploadDate": "2024-01-15T10:30:00Z",
+    "updatedDate": null,
+    "isDeleted": false
+  }
+}
+```
+
+#### 7. Update Document (Creator Only)
+```http
+PUT /v1/historical-documents/{docId}
+Content-Type: application/json
+X-Staff-Id: staff_001
+
+{
+  "title": "Updated Title",
+  "content": "Updated extracted text..."
+}
+```
+**Headers**: X-Staff-Id (required)  
+**Returns**: Updated document (200)
+
+#### 8. Delete Document (Creator Only - Soft Delete)
+```http
+DELETE /v1/historical-documents/{docId}
+X-Staff-Id: staff_001
+```
+**Headers**: X-Staff-Id (required)  
+**Returns**: Empty (204 No Content)
+
+**Soft Delete**: Mark as inactive (isDeleted = true), not permanently removed
+
+---
+
+## �📋 Validation Rules
+
+| Entity | Field | Rules |
+|--------|-------|-------|
+| HistoricalContext | name | 3-100 chars, unique, required |
+| | description | 10-5000 chars, required |
+| | status | DRAFT, PUBLISHED, ARCHIVED (optional) |
+| HistoricalContextDocument | title | 3-255 chars, required |
+| | content | Min 10 chars, required |
+| | fileFormat | PDF, TXT, DOCX (required) |
+| | fileSize | Max 10MB (10,485,760 bytes) |
+| | contextId | Must exist (FK validation) |
 
 **Error Response Example**:
 ```json
@@ -285,6 +419,28 @@ curl -X PUT http://localhost:8080/v1/historical-contexts/{contextId} \
 curl -X DELETE http://localhost:8080/v1/historical-contexts/{contextId} \
   -H "X-Staff-Id: staff_001" \
   -H "X-Staff-Role: STAFF"
+
+# List documents (publicly accessible)
+curl http://localhost:8080/v1/historical-documents
+
+# Upload document (requires X-Staff-Id)
+curl -X POST http://localhost:8080/v1/historical-documents \
+  -H "Content-Type: application/json" \
+  -H "X-Staff-Id: staff_001" \
+  -d '{"contextId":"context-id","title":"Document","content":"Full text content...","fileFormat":"PDF","fileSize":2048576}'
+
+# Update document (requires X-Staff-Id)
+curl -X PUT http://localhost:8080/v1/historical-documents/{docId} \
+  -H "Content-Type: application/json" \
+  -H "X-Staff-Id: staff_001" \
+  -d '{"title":"Updated Title","content":"Updated content..."}'
+
+# Delete document (requires X-Staff-Id)
+curl -X DELETE http://localhost:8080/v1/historical-documents/{docId} \
+  -H "X-Staff-Id: staff_001"
+
+# Search documents
+curl "http://localhost:8080/v1/historical-documents/search?keyword=keyword"
 ```
 
 ---
@@ -316,6 +472,12 @@ The API uses custom HTTP headers for testing purposes to simulate authentication
 | `/historical-contexts/{id}` | GET | | | |
 | `/historical-contexts/{id}` | PUT | ✓ | | ✓ |
 | `/historical-contexts/{id}` | DELETE | ✓ | | ✓ |
+| `/historical-documents` | GET | | | |
+| `/historical-documents/{id}` | GET | | | |
+| `/historical-documents/...` | GET | | | |
+| `/historical-documents` | POST | ✓ | | |
+| `/historical-documents/{id}` | PUT | ✓ | | |
+| `/historical-documents/{id}` | DELETE | ✓ | | |
 
 **Header Descriptions:**
 - **X-Staff-Id**: Identifies the user making the request (string, e.g., `staff_001`)
@@ -326,42 +488,57 @@ The API uses custom HTTP headers for testing purposes to simulate authentication
 
 ### Permissions & Authorization
 
-| Operation | Role Required | Access Control | Required Headers |
-|-----------|---------------|-----------------|-----------------|
-| Read All | None | ✅ **Public** | None |
-| Read One | None | ✅ **Public** | None |
-| Create | STAFF/ADMIN | 🔒 Protected | X-Staff-Id, X-Staff-Name |
-| Update | STAFF/ADMIN | 🔒 Protected | X-Staff-Id, X-Staff-Role |
-| Delete | STAFF/ADMIN | 🔒 Protected | X-Staff-Id, X-Staff-Role |
+| Operation | Entity | Role Required | Access Control | Required Headers |
+|-----------|--------|---------------|-----------------|-----------------|
+| Read All | Context | None | ✅ **Public** | None |
+| Read One | Context | None | ✅ **Public** | None |
+| Create | Context | STAFF/ADMIN | 🔒 Protected | X-Staff-Id, X-Staff-Name |
+| Update | Context | STAFF/ADMIN | 🔒 Protected | X-Staff-Id, X-Staff-Role |
+| Delete | Context | STAFF/ADMIN | 🔒 Protected | X-Staff-Id, X-Staff-Role |
+| Read All | Document | None | ✅ **Public** | None |
+| Read One | Document | None | ✅ **Public** | None |
+| Upload | Document | STAFF/ADMIN | 🔒 Protected | X-Staff-Id |
+| Update | Document | Creator | 🔒 Protected | X-Staff-Id |
+| Delete | Document | Creator | 🔒 Protected | X-Staff-Id |
 
 **Security Configuration** (`SecurityConfig.java`):
 - All GET requests to `/v1/historical-contexts/**` → Publicly accessible (permitAll)
+- All GET requests to `/v1/historical-documents/**` → Publicly accessible (permitAll)
 - All POST/PUT/DELETE requests → ✅ Authenticated access only
 - Framework-level security: Requests matched by HTTP method before authorization
 
 ---
 
-## 📁 Project Structure (19 Java Classes)
+## 📁 Project Structure (27 Java Classes)
 
 ```
 src/main/java/com/historyTalk/
 ├── HistoryTalkApplication.java       ← Main app
 ├── config/
-│   ├── SecurityConfig.java           ← JWT + CORS
+│   ├── SecurityConfig.java           ← JWT + CORS (updated with docs routes)
 │   └── OpenApiConfig.java            ← Swagger
 ├── controller/
-│   └── HistoricalContextController   ← 5 Endpoints
+│   ├── HistoricalContextController   ← 5 Context endpoints
+│   └── HistoricalContextDocumentController ← 8 Document endpoints (NEW)
 ├── service/
-│   └── HistoricalContextService      ← Business logic
+│   ├── HistoricalContextService      ← Context business logic
+│   └── HistoricalContextDocumentService ← Document business logic (NEW)
 ├── repository/
-│   └── HistoricalContextRepository   ← Database queries
+│   ├── HistoricalContextRepository   ← Context DB queries
+│   └── HistoricalContextDocumentRepository ← Document DB queries (NEW)
 ├── entity/
-│   ├── HistoricalContext.java        ← JPA model
-│   └── ContextStatus.java            ← Enum
+│   ├── HistoricalContext.java        ← JPA Context model
+│   ├── HistoricalContextDocument.java ← JPA Document model (NEW)
+│   ├── ContextStatus.java            ← Context status enum
+│   └── DocumentFileFormat.java       ← Document format enum (NEW: PDF, TXT, DOCX)
 ├── dto/
 │   ├── ApiResponse.java
 │   ├── HistoricalContextResponse.java
-│   ├── Create/UpdateRequests
+│   ├── HistoricalContextDocumentResponse.java (NEW)
+│   ├── CreateHistoricalContextDocumentRequest.java (NEW)
+│   ├── UpdateHistoricalContextDocumentRequest.java (NEW)
+│   ├── CreateContextRequest.java
+│   ├── UpdateContextRequest.java
 │   └── ValidationErrorResponse.java
 ├── exception/
 │   ├── GlobalExceptionHandler.java
@@ -372,12 +549,6 @@ src/main/java/com/historyTalk/
 └── security/
     ├── JwtTokenProvider.java         ← Token gen/validate
     └── JwtAuthenticationFilter.java  ← JWT extractor
-
-resources/
-├── application.yml                   ← Config
-docs/
-├── openapi.yaml                      ← Full OpenAPI spec
-└── database-setup.sql                ← Schema
 ```
 
 ---
@@ -636,14 +807,16 @@ Build: Maven 3.8+
 
 ## 📈 Project Statistics
 
-| Metric | Count |
-|--------|-------|
-| Java Classes | 19 |
-| REST Endpoints | 5 |
-| DTOs | 6 |
-| Exception Types | 4 |
-| Status Codes Used | 8 |
-| Lines of Code | ~2,000 |
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Java Classes | 19 | 27 | +8 (Document module) |
+| REST Endpoints | 5 | 13 | +8 (Document CRUD + search) |
+| DTOs | 6 | 8 | +2 (Document request/response) |
+| Entities | 2 | 4 | +2 (Document entity + enum) |
+| Exception Types | 4 | 4 | - |
+| Status Codes Used | 8 | 8 | - |
+| Lines of Code | ~2,000 | ~3,500 | +1,500 (Document module) |
+| Database Tables | 1 | 2 | +1 (historical_context_document) |
 
 ---
 
@@ -660,16 +833,24 @@ Build: Maven 3.8+
 
 ## 🚀 Next Steps
 
+**Completed** ✅:
+- [x] Historical Context CRUD (5 endpoints)
+- [x] Document Management API (8 endpoints)
+- [x] Full-text search for contexts and documents
+- [x] Soft delete for both entities
+- [x] API documentation (OpenAPI 3.0 + Swagger UI)
+
 **Immediate**:
-- [ ] Test all endpoints in Swagger UI
-- [ ] Configure DB credentials
-- [ ] Run on your machine
+- [ ] Test all document endpoints in Swagger UI
+- [ ] Configure max file size limits
+- [ ] Run on your machine with both modules
 
 **Next Sprint**:
-- [ ] Implement real JWT authentication
-- [ ] Add Character Management API
-- [ ] Add Document Management API
-- [ ] Write unit tests
+- [ ] Implement real JWT authentication (replace headers)
+- [ ] Add Character/Historical Figure Management API
+- [ ] Add RAG integration using document content
+- [ ] Write unit tests for both modules
+- [ ] File upload validation (PDF, TXT, DOCX)
 
 ---
 

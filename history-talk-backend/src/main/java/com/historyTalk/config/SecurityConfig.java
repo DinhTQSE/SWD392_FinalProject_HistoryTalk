@@ -27,6 +27,7 @@ import java.util.Collections;
  * 
  * ENDPOINT CONVENTION:
  * - /v1/historical-contexts/** → Historical Context Module
+ * - /v1/historical-documents/** → Historical Context Document Module (RAG knowledge base)
  * - /api/v1/user/** → User Module (future)
  * - /api/v1/auth/** → Auth Module (future)
  * - /swagger-ui/** → Public (Swagger)
@@ -73,6 +74,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/v1/historical-contexts/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/v1/historical-contexts/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/v1/historical-contexts/**").authenticated()
+                        
+                        // Historical Context Document endpoints - GET requests public, others require authentication
+                        .requestMatchers(HttpMethod.GET, "/v1/historical-documents/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/v1/historical-documents/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/v1/historical-documents/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/v1/historical-documents/**").authenticated()
                         
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
