@@ -12,7 +12,7 @@
 |------|-------|---------|-------|
 | `SecurityConfig.java` | Backend Lead | API security routes | Add endpoint patterns here |
 | `JwtAuthenticationFilter.java` | Backend Lead | JWT extraction logic | Only change if adding new auth method |
-| `application.yml` | DevOps/Config Lead | Configuration | Use env variables, don't hardcode |
+| `application.properties` | DevOps/Config Lead | Configuration | Use env variables, don't hardcode |
 | `pom.xml` | Build Lead | Dependencies | Review before adding new libs |
 | `GlobalExceptionHandler.java` | Backend Lead | Exception handling | Can be extended by modules |
 
@@ -83,7 +83,7 @@ git commit -m "docs: Update API documentation"
    ## Changes
    - [ ] Module-specific only (controller, service, entity)
    - [ ] No changes to ConfigSecurity.java
-   - [ ] No changes to application.yml (only add new module config)
+   - [ ] No changes to application.properties (only add new module config)
    - [ ] No new dependencies without approval
    
    ## Testing
@@ -198,7 +198,7 @@ src/main/java/com/historyTalk/
 .requestMatchers("/v1/characters/**").authenticated()
 ```
 
-**application.yml** - No changes needed (uses env vars)
+**application.properties** - No changes needed (uses env vars)
 
 **pom.xml** - Only if new dependencies needed
 

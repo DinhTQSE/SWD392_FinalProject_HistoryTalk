@@ -7,22 +7,18 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "historical_context_document", indexes = {
-        @Index(name = "idx_context_id", columnList = "context_id"),
-        @Index(name = "idx_staff_id", columnList = "staff_id")
-})
+@Table(name = "character_document")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class HistoricalContextDocument {
+public class CharacterDocument {
 
     @Id
     @Column(name = "doc_id", length = 50)
@@ -36,8 +32,8 @@ public class HistoricalContextDocument {
     private String content;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "context_id", nullable = false)
-    private HistoricalContext historicalContext;
+    @JoinColumn(name = "character_id", nullable = false)
+    private Character character;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "staff_id", nullable = false)
@@ -47,12 +43,8 @@ public class HistoricalContextDocument {
     @Column(name = "upload_date", nullable = false, updatable = false)
     private LocalDateTime uploadDate;
 
-    @UpdateTimestamp
-    @Column(name = "updated_date")
-    private LocalDateTime updatedDate;
-
     @PrePersist
-    public void prePersist() {
+    void ensureId() {
         if (this.docId == null) {
             this.docId = UUID.randomUUID().toString();
         }

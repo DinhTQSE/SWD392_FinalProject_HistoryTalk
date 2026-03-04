@@ -57,3 +57,4 @@ node_modules/
 # Application properties
 application-dev.yml
 application-prod.yml
+.vscode

@@ -3,15 +3,20 @@ package com.historyTalk.service;
 import com.historyTalk.dto.CreateHistoricalContextDocumentRequest;
 import com.historyTalk.dto.HistoricalContextDocumentResponse;
 import com.historyTalk.dto.UpdateHistoricalContextDocumentRequest;
-import com.historyTalk.entity.DocumentFileFormat;
+import com.historyTalk.entity.HistoricalContext;
 import com.historyTalk.entity.HistoricalContextDocument;
+import com.historyTalk.entity.Staff;
+import com.historyTalk.exception.ForbiddenException;
 import com.historyTalk.exception.ResourceNotFoundException;
 import com.historyTalk.repository.HistoricalContextDocumentRepository;
+import com.historyTalk.repository.HistoricalContextRepository;
+import com.historyTalk.repository.StaffRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,26 +26,29 @@ import java.util.stream.Collectors;
  * - Create (upload)
  * - Read (list, search, get by ID)
  * - Update (replace content)
- * - Delete (soft delete - mark as inactive)
+ * - Delete
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class HistoricalContextDocumentService {
-    
+
+    private static final long MAX_CONTENT_BYTES = 10 * 1024 * 1024; // 10MB
+
     private final HistoricalContextDocumentRepository documentRepository;
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private final HistoricalContextRepository contextRepository;
+    private final StaffRepository staffRepository;
     
     /**
-     * Get all active documents
+     * Get all documents
      */
     @Transactional(readOnly = true)
     public List<HistoricalContextDocumentResponse> getAllDocuments() {
-        log.info("Fetching all active historical context documents");
-        return documentRepository.findAllNotDeleted()
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        log.info("Fetching all historical context documents");
+        return documentRepository.findAllByOrderByUploadDateDesc()
+            .stream()
+            .map(this::mapToResponse)
+            .collect(Collectors.toList());
     }
     
     /**
@@ -49,10 +57,10 @@ public class HistoricalContextDocumentService {
     @Transactional(readOnly = true)
     public List<HistoricalContextDocumentResponse> getDocumentsByContextId(String contextId) {
         log.info("Fetching documents for context: {}", contextId);
-        return documentRepository.findByContextIdNotDeleted(contextId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return documentRepository.findByHistoricalContextContextIdOrderByUploadDateDesc(contextId)
+            .stream()
+            .map(this::mapToResponse)
+            .collect(Collectors.toList());
     }
     
     /**
@@ -61,10 +69,10 @@ public class HistoricalContextDocumentService {
     @Transactional(readOnly = true)
     public List<HistoricalContextDocumentResponse> getDocumentsByStaffId(String staffId) {
         log.info("Fetching documents uploaded by staff: {}", staffId);
-        return documentRepository.findByStaffIdNotDeleted(staffId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return documentRepository.findByStaffStaffIdOrderByUploadDateDesc(staffId)
+            .stream()
+            .map(this::mapToResponse)
+            .collect(Collectors.toList());
     }
     
     /**
@@ -73,10 +81,10 @@ public class HistoricalContextDocumentService {
     @Transactional(readOnly = true)
     public List<HistoricalContextDocumentResponse> searchDocuments(String search) {
         log.info("Searching documents with keyword: {}", search);
-        return documentRepository.searchNotDeletedByTitleOrContent(search != null ? search : "")
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return documentRepository.search(normalize(search))
+            .stream()
+            .map(this::mapToResponse)
+            .collect(Collectors.toList());
     }
     
     /**
@@ -85,7 +93,7 @@ public class HistoricalContextDocumentService {
     @Transactional(readOnly = true)
     public HistoricalContextDocumentResponse getDocumentById(String docId) {
         log.info("Fetching document: {}", docId);
-        HistoricalContextDocument doc = documentRepository.findByIdNotDeleted(docId)
+        HistoricalContextDocument doc = documentRepository.findById(docId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + docId));
         return mapToResponse(doc);
     }
@@ -96,33 +104,23 @@ public class HistoricalContextDocumentService {
     @Transactional
     public HistoricalContextDocumentResponse createDocument(CreateHistoricalContextDocumentRequest request, String staffId) {
         log.info("Creating document: {} by staff: {}", request.getTitle(), staffId);
-        
-        // Validate file format
-        DocumentFileFormat format;
-        try {
-            format = DocumentFileFormat.valueOf(request.getFileFormat().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            log.warn("Invalid file format: {}", request.getFileFormat());
-            throw new IllegalArgumentException("Unsupported file format. Allowed: PDF, TXT, DOCX");
-        }
-        
-        // Validate file size (estimate from content length)
-        long contentSize = request.getContent().getBytes().length;
-        if (contentSize > MAX_FILE_SIZE) {
-            log.warn("File too large: {} bytes", contentSize);
-            throw new IllegalArgumentException("File size exceeds 10MB limit");
-        }
-        
+
+        HistoricalContext context = contextRepository.findById(request.getContextId())
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Historical Context", "contextId", request.getContextId()));
+
+        Staff staff = staffRepository.findById(staffId)
+            .orElseThrow(() -> new ResourceNotFoundException("Staff", "staffId", staffId));
+
+        validateContent(request.getContent());
+
         HistoricalContextDocument doc = HistoricalContextDocument.builder()
-                .contextId(request.getContextId())
-                .staffId(staffId)
-                .title(request.getTitle())
-                .content(request.getContent())
-                .fileFormat(format)
-                .fileSize(contentSize)
-                .isDeleted(false)
-                .build();
-        
+            .historicalContext(context)
+            .staff(staff)
+            .title(request.getTitle())
+            .content(request.getContent())
+            .build();
+
         HistoricalContextDocument saved = documentRepository.save(doc);
         log.info("Document created: {} with ID: {}", request.getTitle(), saved.getDocId());
         return mapToResponse(saved);
@@ -135,13 +133,13 @@ public class HistoricalContextDocumentService {
     public HistoricalContextDocumentResponse updateDocument(String docId, UpdateHistoricalContextDocumentRequest request, String staffId) {
         log.info("Updating document: {} by staff: {}", docId, staffId);
         
-        HistoricalContextDocument doc = documentRepository.findByIdNotDeleted(docId)
+        HistoricalContextDocument doc = documentRepository.findById(docId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + docId));
         
         // Only creator or admin can update
-        if (!doc.getStaffId().equals(staffId)) {
+        if (!doc.getStaff().getStaffId().equals(staffId)) {
             log.warn("Unauthorized update attempt on document {} by staff {}", docId, staffId);
-            throw new SecurityException("Only document creator can update");
+            throw new ForbiddenException("Only document creator can update this record");
         }
         
         if (request.getTitle() != null && !request.getTitle().isBlank()) {
@@ -149,14 +147,8 @@ public class HistoricalContextDocumentService {
         }
         
         if (request.getContent() != null && !request.getContent().isBlank()) {
-            // Validate new content size
-            long contentSize = request.getContent().getBytes().length;
-            if (contentSize > MAX_FILE_SIZE) {
-                log.warn("New content too large: {} bytes", contentSize);
-                throw new IllegalArgumentException("File size exceeds 10MB limit");
-            }
+            validateContent(request.getContent());
             doc.setContent(request.getContent());
-            doc.setFileSize(contentSize);
         }
         
         HistoricalContextDocument updated = documentRepository.save(doc);
@@ -165,24 +157,23 @@ public class HistoricalContextDocumentService {
     }
     
     /**
-     * Delete document (soft delete - mark as inactive)
+     * Delete document
      */
     @Transactional
     public void deleteDocument(String docId, String staffId) {
-        log.info("Deleting (soft) document: {} by staff: {}", docId, staffId);
+        log.info("Deleting document: {} by staff: {}", docId, staffId);
         
-        HistoricalContextDocument doc = documentRepository.findByIdNotDeleted(docId)
+        HistoricalContextDocument doc = documentRepository.findById(docId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + docId));
         
         // Only creator or admin can delete
-        if (!doc.getStaffId().equals(staffId)) {
+        if (!doc.getStaff().getStaffId().equals(staffId)) {
             log.warn("Unauthorized delete attempt on document {} by staff {}", docId, staffId);
-            throw new SecurityException("Only document creator can delete");
+            throw new ForbiddenException("Only document creator can delete this record");
         }
-        
-        doc.setIsDeleted(true);
-        documentRepository.save(doc);
-        log.info("Document marked as deleted: {}", docId);
+
+        documentRepository.delete(doc);
+        log.info("Document deleted: {}", docId);
     }
     
     /**
@@ -191,15 +182,28 @@ public class HistoricalContextDocumentService {
     private HistoricalContextDocumentResponse mapToResponse(HistoricalContextDocument doc) {
         return HistoricalContextDocumentResponse.builder()
                 .docId(doc.getDocId())
-                .contextId(doc.getContextId())
-                .staffId(doc.getStaffId())
+                .contextId(doc.getHistoricalContext().getContextId())
+                .staffId(doc.getStaff().getStaffId())
+                .staffName(doc.getStaff().getName())
                 .title(doc.getTitle())
                 .content(doc.getContent())
-                .fileFormat(doc.getFileFormat())
-                .fileSize(doc.getFileSize())
                 .uploadDate(doc.getUploadDate())
                 .updatedDate(doc.getUpdatedDate())
-                .isDeleted(doc.getIsDeleted())
                 .build();
+    }
+
+    private void validateContent(String content) {
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("Content cannot be blank");
+        }
+        long contentSize = content.getBytes(StandardCharsets.UTF_8).length;
+        if (contentSize > MAX_CONTENT_BYTES) {
+            log.warn("Content too large: {} bytes", contentSize);
+            throw new IllegalArgumentException("Content size exceeds 10MB limit");
+        }
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim();
     }
 }

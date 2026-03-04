@@ -13,7 +13,6 @@ Backend API cho nền tảng học Lịch sử History Talk. Quản lý Historic
 - ✅ **Full-Text Search**: Search contexts and documents by keyword
 - ✅ **JWT Authentication**: Bearer token security
 - ✅ **Role-Based Access**: Staff & Admin roles
-- ✅ **Soft Delete Pattern**: Data never permanently deleted
 - ✅ **Audit Trail**: Track who uploaded/modified documents
 - ✅ **Input Validation**: Comprehensive rules
 - ✅ **Global Error Handling**: Consistent responses
@@ -187,7 +186,7 @@ X-Staff-Role: STAFF
 
 {
   "name": "Updated Name",
-  "status": "ARCHIVED"
+  "description": "Updated description"
 }
 ```
 **Headers**: X-Staff-Id, X-Staff-Role  
@@ -203,21 +202,20 @@ X-Staff-Role: STAFF
     "name": "Updated Name",
     "description": "A decisive battle in the First Indochina War...",
     "year": 1954,
-    "status": "ARCHIVED",
     "createdBy": "staff_001",
     "createdDate": "2024-01-15T10:30:00Z"
   }
 }
 ```
 
-#### 5. Delete Context (Creator or Admin - Soft Delete)
+#### 5. Delete Context (Creator or Admin)
 ```http
 DELETE /v1/historical-contexts/{contextId}
 X-Staff-Id: staff_001
 X-Staff-Role: STAFF
 ```
 **Headers**: X-Staff-Id, X-Staff-Role  
-**Returns**: Empty (204 No Content)
+**Returns**: Empty (204 No Content). Deletion is permanent.
 
 **Response (204 No Content)**: No body returned
 
@@ -233,7 +231,7 @@ GET /v1/historical-documents
 ```
 **Query**: Optional  
 **Headers**: None required  
-**Returns**: JSON array of all active documents (sorted by upload date, newest first)
+**Returns**: JSON array of all documents (sorted by upload date, newest first)
 
 **Response (200 OK)**:
 ```json
@@ -242,13 +240,11 @@ GET /v1/historical-documents
     "docId": "doc-uuid-001",
     "contextId": "context-uuid-001",
     "staffId": "staff_001",
+    "staffName": "System Admin",
     "title": "Primary Source Document",
     "content": "Raw extracted text from PDF/TXT/DOCX...",
-    "fileFormat": "PDF",
-    "fileSize": 2048576,
     "uploadDate": "2024-01-15T10:30:00Z",
-    "updatedDate": "2024-01-15T10:30:00Z",
-    "isDeleted": false
+    "updatedDate": "2024-01-15T10:30:00Z"
   }
 ]
 ```
@@ -337,15 +333,13 @@ X-Staff-Id: staff_001
 **Headers**: X-Staff-Id (required)  
 **Returns**: Updated document (200)
 
-#### 8. Delete Document (Creator Only - Soft Delete)
+#### 8. Delete Document (Creator Only)
 ```http
 DELETE /v1/historical-documents/{docId}
 X-Staff-Id: staff_001
 ```
 **Headers**: X-Staff-Id (required)  
-**Returns**: Empty (204 No Content)
-
-**Soft Delete**: Mark as inactive (isDeleted = true), not permanently removed
+**Returns**: Empty (204 No Content). Deletion is permanent.
 
 ---
 
@@ -355,11 +349,8 @@ X-Staff-Id: staff_001
 |--------|-------|-------|
 | HistoricalContext | name | 3-100 chars, unique, required |
 | | description | 10-5000 chars, required |
-| | status | DRAFT, PUBLISHED, ARCHIVED (optional) |
 | HistoricalContextDocument | title | 3-255 chars, required |
-| | content | Min 10 chars, required |
-| | fileFormat | PDF, TXT, DOCX (required) |
-| | fileSize | Max 10MB (10,485,760 bytes) |
+| | content | Min 10 chars, required (10MB limit) |
 | | contextId | Must exist (FK validation) |
 
 **Error Response Example**:
@@ -570,7 +561,7 @@ This document covers:
 - ✅ Coordinate before modifying these files:
   - `SecurityConfig.java` (security routes)
   - `JwtAuthenticationFilter.java` (authentication)
-  - `application.yml` (configuration)
+  - `application.properties` (configuration)
   - `pom.xml` (dependencies)
 
 ### Quick Reference
@@ -604,8 +595,8 @@ git checkout -b feature/your-module
 |-------|------|-----------------|
 | Controller | `HistoricalContextController.java` | Extract X-Staff-* headers, set defaults, call Service |
 | Service | `HistoricalContextService.java` | Business logic, permission checks (creator or ADMIN only) |
-| Repository | `HistoricalContextRepository.java` | Database queries with soft delete filters (isDeleted = false) |
-| Entity | `HistoricalContext.java` | JPA model with UUID PK, timestamps, soft delete flag |
+| Repository | `HistoricalContextRepository.java` | Database queries with case-insensitive search helpers |
+| Entity | `HistoricalContext.java` | JPA model with UUID PK, timestamps, staff relation |
 
 **For Developers**: When implementing JWT in production, only update the Controller's header extraction logic - Service stays the same! 🎯
 
@@ -615,12 +606,12 @@ git checkout -b feature/your-module
 
 ### 1. Change Before Production ⚠️
 
-**Database Credentials** (`application.yml`):
+**Database Credentials** (`application.properties`):
 ```yaml
 spring.datasource.password: 123456  # ← CHANGE THIS!
 ```
 
-**JWT Secret** (`application.yml`):
+**JWT Secret** (`application.properties`):
 ```yaml
 jwt.secret: your_super_secret_key...  # ← GENERATE NEW (min 256-bit for HS512)
 ```
@@ -633,7 +624,6 @@ Generate with: `openssl rand -base64 32`
 ```java
 // Currently hard-coded for testing
 if (staffId == null) staffId = "staff_001";        // ⚠️ For testing
-if (staffName == null) staffName = "System Admin";
 if (staffRole == null) staffRole = "STAFF";
 ```
 
@@ -643,14 +633,9 @@ String staffId = authentication.getPrincipal().toString();     // From JWT
 String staffRole = authentication.getAuthorities()...orElse("USER");
 ```
 
-### 3. Soft Delete (Not Permanent)
-```java
-// Records marked deleted, not removed from database
-isDeleted = true  // Hidden from queries
-isDeleted = false // Visible in queries
-```
+### 3. Deletes Are Permanent
 
-Use in SQL for audit: `SELECT * FROM historical_context WHERE is_deleted = true`
+Deletion endpoints now remove rows from the database. Use database backups or triggers if you require historical auditing.
 
 ### 4. CORS Configuration
 ```java
@@ -678,7 +663,7 @@ Use in SQL for audit: `SELECT * FROM historical_context WHERE is_deleted = true`
 |---------|----------|
 | Database doesn't exist | `psql -U postgres -c "CREATE DATABASE history_talk_db;"` |
 | Cannot connect to PostgreSQL | Check: Service running? Correct password? Port 5432? |
-| Port 8080 already in use | Change in application.yml: `server.port: 8081` |
+| Port 8080 already in use | Change in application.properties: `server.port=8081` |
 | "No POM in directory" | Run from `history-talk-backend/` folder |
 | Swagger shows "Failed to load" | Verify app running: http://localhost:8080/swagger-ui.html |
 
@@ -784,11 +769,11 @@ Build: Maven 3.8+
 1. **Add New Endpoint**: Follow MVC pattern
    - Create Entity → Repository → Service → Controller → DTO
 
-2. **Use Soft Delete Pattern**:
-   ```java
-   // Query: WHERE is_deleted = false (automatic in repo)
-   repository.findByIdNotDeleted(id);  // ← Use this pattern
-   ```
+2. **Reuse Repository Search Helpers**:
+  ```java
+  Page<HistoricalContext> page = contextRepository
+     .findAllWithSearch(search, pageable);
+  ```
 
 3. **Add Validation**:
    ```java
@@ -837,7 +822,7 @@ Build: Maven 3.8+
 - [x] Historical Context CRUD (5 endpoints)
 - [x] Document Management API (8 endpoints)
 - [x] Full-text search for contexts and documents
-- [x] Soft delete for both entities
+- [x] Entity relationships aligned with ERD
 - [x] API documentation (OpenAPI 3.0 + Swagger UI)
 
 **Immediate**:

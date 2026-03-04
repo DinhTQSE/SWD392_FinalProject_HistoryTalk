@@ -238,8 +238,8 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
     delete:
-      summary: Delete a historical context (Soft delete)
-      description: Soft delete a historical context (mark as deleted). Only the creator or admins can delete.
+      summary: Delete a historical context
+      description: Permanently delete a historical context. Only the creator or admins can delete.
       operationId: deleteHistoricalContext
       tags:
         - Historical Context
@@ -279,10 +279,6 @@ components:
         description:
           type: string
           example: "A decisive battle in the First Indochina War..."
-        status:
-          type: string
-          enum: [DRAFT, PUBLISHED, ARCHIVED]
-          example: "PUBLISHED"
         createdBy:
           type: object
           properties:
@@ -300,9 +296,6 @@ components:
           type: string
           format: date-time
           example: "2025-01-25T14:45:00Z"
-        isDeleted:
-          type: boolean
-          example: false
 
     CreateHistoricalContextRequest:
       type: object
@@ -322,12 +315,6 @@ components:
           maxLength: 5000
           example: "A decisive battle in the First Indochina War..."
           description: Detailed description of the historical context
-        status:
-          type: string
-          enum: [DRAFT, PUBLISHED]
-          default: DRAFT
-          example: "PUBLISHED"
-          description: Initial status of the context
 
     UpdateHistoricalContextRequest:
       type: object
@@ -344,11 +331,6 @@ components:
           maxLength: 5000
           example: "A decisive battle in the First Indochina War..."
           description: Detailed description of the historical context
-        status:
-          type: string
-          enum: [DRAFT, PUBLISHED, ARCHIVED]
-          example: "PUBLISHED"
-          description: Updated status of the context
 
     ErrorResponse:
       type: object

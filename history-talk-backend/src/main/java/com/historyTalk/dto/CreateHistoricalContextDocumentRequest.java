@@ -27,8 +27,4 @@ public class CreateHistoricalContextDocumentRequest {
     @Size(min = 10, message = "Content must be at least 10 characters")
     private String content;
     
-    @NotBlank(message = "File format is required")
-    private String fileFormat; // "PDF", "TXT", "DOCX"
-    
-    private Long fileSize; // optional, can be calculated
 }

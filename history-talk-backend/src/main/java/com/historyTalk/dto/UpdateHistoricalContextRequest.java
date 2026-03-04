@@ -21,7 +21,4 @@ public class UpdateHistoricalContextRequest {
     @Size(min = 10, max = 5000, message = "Context description must be between 10 and 5000 characters")
     private String description;
     
-    @JsonProperty("status")
-    @Pattern(regexp = "DRAFT|PUBLISHED|ARCHIVED", message = "Status must be DRAFT, PUBLISHED, or ARCHIVED")
-    private String status;
 }

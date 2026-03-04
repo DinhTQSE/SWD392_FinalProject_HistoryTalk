@@ -2,7 +2,12 @@ package com.historyTalk.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -13,49 +18,46 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class HistoricalContext {
-    
+
     @Id
-    @Column(name = "context_id", length = 36)
+    @Column(name = "context_id", length = 50)
     private String contextId;
-    
+
     @Column(name = "name", nullable = false, length = 100, unique = true)
     private String name;
-    
+
+    @Lob
     @Column(name = "description", nullable = false, columnDefinition = "TEXT")
     private String description;
-    
-    @Column(name = "status", nullable = false, length = 20)
-    @Enumerated(EnumType.STRING)
-    private ContextStatus status;
-    
-    @Column(name = "staff_id", nullable = false, length = 36)
-    private String staffId;
-    
-    @Column(name = "staff_name", length = 100)
-    private String staffName;
-    
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "staff_id", nullable = false)
+    private Staff staff;
+
+    @CreationTimestamp
     @Column(name = "created_date", nullable = false, updatable = false)
     private LocalDateTime createdDate;
-    
+
+    @UpdateTimestamp
     @Column(name = "updated_date")
     private LocalDateTime updatedDate;
-    
-    @Column(name = "is_deleted", nullable = false)
-    private Boolean isDeleted;
-    
+
+    @Builder.Default
+    @OneToMany(mappedBy = "historicalContext", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<HistoricalContextDocument> documents = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "historicalContext", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Character> characters = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "historicalContext", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Quiz> quizzes = new ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
-        this.contextId = UUID.randomUUID().toString();
-        this.createdDate = LocalDateTime.now();
-        this.updatedDate = LocalDateTime.now();
-        this.isDeleted = false;
-        if (this.status == null) {
-            this.status = ContextStatus.DRAFT;
+        if (this.contextId == null) {
+            this.contextId = UUID.randomUUID().toString();
         }
-    }
-    
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedDate = LocalDateTime.now();
     }
 }

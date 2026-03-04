@@ -21,27 +21,27 @@ import java.util.List;
  * REST Controller for Historical Context Document Management
  * 
  * Endpoints:
- * - GET /v1/historical-documents - Get all active documents (public)
+ * - GET /v1/historical-documents - Get all documents (public)
  * - GET /v1/historical-documents/{docId} - Get single document (public)
  * - GET /v1/historical-documents/search - Search documents (public)
  * - POST /v1/historical-documents - Upload/create document (Staff/Admin)
  * - PUT /v1/historical-documents/{docId} - Update document (Staff/Admin)
- * - DELETE /v1/historical-documents/{docId} - Soft delete document (Staff/Admin)
+ * - DELETE /v1/historical-documents/{docId} - Remove document (Staff/Admin)
  */
 @RestController
 @RequestMapping("/v1/historical-documents")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Historical Context Documents", description = "API for managing historical documents (PDF, TXT, DOCX)")
+@Tag(name = "Historical Context Documents", description = "API for managing historical documents")
 public class HistoricalContextDocumentController {
     
     private final HistoricalContextDocumentService documentService;
     
     /**
-     * Get all active documents
+     * Get all documents
      */
     @GetMapping
-    @Operation(summary = "Get all documents", description = "Retrieve list of all active historical documents")
+    @Operation(summary = "Get all documents", description = "Retrieve list of all historical documents")
     public ResponseEntity<ApiResponse<?>> getAllDocuments() {
         log.info("GET /v1/historical-documents - Get all documents");
         List<HistoricalContextDocumentResponse> documents = documentService.getAllDocuments();
@@ -132,11 +132,11 @@ public class HistoricalContextDocumentController {
     }
     
     /**
-     * Delete document (soft delete - mark as inactive)
+     * Delete document
      */
     @DeleteMapping("/{docId}")
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Delete document", description = "Delete a document (soft delete - marks as inactive)")
+    @Operation(summary = "Delete document", description = "Delete a document")
     public ResponseEntity<ApiResponse<?>> deleteDocument(
             @PathVariable String docId,
             @RequestHeader(value = "X-Staff-Id", required = false) String staffId) {

@@ -1,6 +1,5 @@
 package com.historyTalk.dto;
 
-import com.historyTalk.entity.DocumentFileFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,24 +8,19 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * Response DTO for HistoricalContextDocument
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class HistoricalContextDocumentResponse {
-    
+
     private String docId;
     private String contextId;
     private String staffId;
+    private String staffName;
     private String title;
     private String content;
-    private DocumentFileFormat fileFormat;
-    private Long fileSize;
     private LocalDateTime uploadDate;
     private LocalDateTime updatedDate;
-    private Boolean isDeleted;
 }

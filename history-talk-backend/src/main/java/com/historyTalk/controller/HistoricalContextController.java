@@ -73,16 +73,14 @@ public class HistoricalContextController {
     @Operation(summary = "Create a new historical context", description = "Create a new historical context (Staff/Admin only)")
     public ResponseEntity<ApiResponse<?>> createContext(
             @Valid @RequestBody CreateHistoricalContextRequest request,
-            @RequestHeader(value = "X-Staff-Id", required = false) String staffId,
-            @RequestHeader(value = "X-Staff-Name", required = false) String staffName) {
+            @RequestHeader(value = "X-Staff-Id", required = false) String staffId) {
         
         log.info("POST /v1/historical-contexts - Creating context: {}", request.getName());
         
         // In real scenario, extract from JWT token
         if (staffId == null) staffId = "staff_001"; // Default for testing
-        if (staffName == null) staffName = "System Admin"; // Default for testing
         
-        var response = contextService.createContext(request, staffId, staffName);
+        var response = contextService.createContext(request, staffId);
         
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
                 response,
@@ -118,14 +116,14 @@ public class HistoricalContextController {
         ));
     }
     
-    /**
-     * DELETE /v1/historical-contexts/{contextId}
-     * Delete (soft delete) a historical context
-     */
+        /**
+         * DELETE /v1/historical-contexts/{contextId}
+         * Delete a historical context
+         */
     @DeleteMapping("/{contextId}")
     @PreAuthorize("hasRole('STAFF') or hasRole('ADMIN')")
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Delete a historical context", description = "Delete (soft delete) a historical context (Creator/Admin only)")
+        @Operation(summary = "Delete a historical context", description = "Delete a historical context (Creator/Admin only)")
     public ResponseEntity<Void> deleteContext(
             @PathVariable String contextId,
             @RequestHeader(value = "X-Staff-Id", required = false) String staffId,

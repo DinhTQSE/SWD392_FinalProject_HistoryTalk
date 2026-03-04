@@ -4,12 +4,13 @@ import com.historyTalk.dto.CreateHistoricalContextRequest;
 import com.historyTalk.dto.HistoricalContextResponse;
 import com.historyTalk.dto.PaginatedResponse;
 import com.historyTalk.dto.UpdateHistoricalContextRequest;
-import com.historyTalk.entity.ContextStatus;
 import com.historyTalk.entity.HistoricalContext;
+import com.historyTalk.entity.Staff;
 import com.historyTalk.exception.DuplicateResourceException;
 import com.historyTalk.exception.ForbiddenException;
 import com.historyTalk.exception.ResourceNotFoundException;
 import com.historyTalk.repository.HistoricalContextRepository;
+import com.historyTalk.repository.StaffRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,8 +25,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class HistoricalContextService {
-    
-    private final HistoricalContextRepository contextRepository;
+
+        private final HistoricalContextRepository contextRepository;
+        private final StaffRepository staffRepository;
     
     /**
      * Get all historical contexts with pagination and search
@@ -37,7 +39,7 @@ public class HistoricalContextService {
         log.info("Fetching historical contexts with search: {}", search);
         
         Page<HistoricalContext> page = contextRepository
-                .findAllNotDeletedWithSearch(search != null ? search : "", pageable);
+                .findAllWithSearch(normalize(search), pageable);
         
         return mapPageToPaginatedResponse(page);
     }
@@ -50,7 +52,7 @@ public class HistoricalContextService {
         log.info("Fetching all historical contexts with search: {}", search);
         
         return contextRepository
-                .findAllNotDeletedSimple(search != null ? search : "")
+                .findAllSimple(normalize(search))
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -63,7 +65,7 @@ public class HistoricalContextService {
     public HistoricalContextResponse getContextById(String contextId) {
         log.info("Fetching historical context with ID: {}", contextId);
         
-        HistoricalContext context = contextRepository.findByIdNotDeleted(contextId)
+        HistoricalContext context = contextRepository.findById(contextId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Historical Context", "contextId", contextId
                 ));
@@ -76,25 +78,24 @@ public class HistoricalContextService {
      */
     @Transactional
     public HistoricalContextResponse createContext(
-            CreateHistoricalContextRequest request, String staffId, String staffName) {
+            CreateHistoricalContextRequest request, String staffId) {
         
         log.info("Creating historical context: {} by staff: {}", request.getName(), staffId);
         
         // Check for duplicate name
-        if (contextRepository.findByNameIgnoreCaseNotDeleted(request.getName()).isPresent()) {
+        if (contextRepository.findByNameIgnoreCase(request.getName()).isPresent()) {
             throw new DuplicateResourceException("Historical Context", "name", request.getName());
         }
-        
+
+        Staff staff = staffRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff", "staffId", staffId));
+
         HistoricalContext context = HistoricalContext.builder()
                 .name(request.getName())
                 .description(request.getDescription())
-                .status(request.getStatus() != null ? 
-                        ContextStatus.valueOf(request.getStatus()) : ContextStatus.DRAFT)
-                .staffId(staffId)
-                .staffName(staffName)
-                .isDeleted(false)
+                .staff(staff)
                 .build();
-        
+
         HistoricalContext savedContext = contextRepository.save(context);
         log.info("Historical context created successfully with ID: {}", savedContext.getContextId());
         
@@ -111,13 +112,13 @@ public class HistoricalContextService {
         
         log.info("Updating historical context with ID: {}", contextId);
         
-        HistoricalContext context = contextRepository.findByIdNotDeleted(contextId)
+        HistoricalContext context = contextRepository.findById(contextId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Historical Context", "contextId", contextId
                 ));
         
         // Check if user has permission to update (creator or admin)
-        if (!context.getStaffId().equals(staffId) && !staffRole.equals("ADMIN")) {
+        if (!context.getStaff().getStaffId().equals(staffId) && !"ADMIN".equalsIgnoreCase(staffRole)) {
             throw new ForbiddenException(
                     "You do not have permission to update this historical context"
             );
@@ -126,7 +127,7 @@ public class HistoricalContextService {
         // Check for duplicate name (if name is being changed)
         if (request.getName() != null && 
             !request.getName().equalsIgnoreCase(context.getName()) &&
-            contextRepository.findByNameIgnoreCaseNotDeleted(request.getName()).isPresent()) {
+            contextRepository.existsByNameIgnoreCaseAndContextIdNot(request.getName(), contextId)) {
             throw new DuplicateResourceException("Historical Context", "name", request.getName());
         }
         
@@ -137,39 +138,33 @@ public class HistoricalContextService {
         if (request.getDescription() != null) {
             context.setDescription(request.getDescription());
         }
-        if (request.getStatus() != null) {
-            context.setStatus(ContextStatus.valueOf(request.getStatus()));
-        }
-        
         HistoricalContext updatedContext = contextRepository.save(context);
         log.info("Historical context updated successfully with ID: {}", contextId);
         
         return mapToResponse(updatedContext);
     }
     
-    /**
-     * Delete a historical context (Soft delete - only creator or admin)
-     */
+        /**
+         * Delete a historical context (only creator or admin)
+         */
     @Transactional
     public void deleteContext(String contextId, String staffId, String staffRole) {
         log.info("Deleting historical context with ID: {}", contextId);
         
-        HistoricalContext context = contextRepository.findByIdNotDeleted(contextId)
+        HistoricalContext context = contextRepository.findById(contextId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Historical Context", "contextId", contextId
                 ));
         
         // Check if user has permission to delete (creator or admin)
-        if (!context.getStaffId().equals(staffId) && !staffRole.equals("ADMIN")) {
+        if (!context.getStaff().getStaffId().equals(staffId) && !"ADMIN".equalsIgnoreCase(staffRole)) {
             throw new ForbiddenException(
                     "You do not have permission to delete this historical context"
             );
         }
         
-        // Perform soft delete
-        context.setIsDeleted(true);
-        contextRepository.save(context);
-        log.info("Historical context soft deleted successfully with ID: {}", contextId);
+        contextRepository.delete(context);
+        log.info("Historical context deleted successfully with ID: {}", contextId);
     }
     
     /**
@@ -180,14 +175,12 @@ public class HistoricalContextService {
                 .contextId(context.getContextId())
                 .name(context.getName())
                 .description(context.getDescription())
-                .status(context.getStatus().toString())
                 .createdBy(HistoricalContextResponse.CreatedByInfo.builder()
-                        .staffId(context.getStaffId())
-                        .name(context.getStaffName())
+                        .staffId(context.getStaff().getStaffId())
+                        .name(context.getStaff().getName())
                         .build())
                 .createdDate(context.getCreatedDate())
                 .updatedDate(context.getUpdatedDate())
-                .isDeleted(context.getIsDeleted())
                 .build();
     }
     
@@ -209,4 +202,8 @@ public class HistoricalContextService {
                 .hasPrevious(page.hasPrevious())
                 .build();
     }
+
+        private String normalize(String value) {
+                return value == null ? "" : value.trim();
+        }
 }

@@ -22,9 +22,6 @@ public class HistoricalContextResponse {
     @JsonProperty("description")
     private String description;
     
-    @JsonProperty("status")
-    private String status;
-    
     @JsonProperty("createdBy")
     private CreatedByInfo createdBy;
     
@@ -33,9 +30,6 @@ public class HistoricalContextResponse {
     
     @JsonProperty("updatedDate")
     private LocalDateTime updatedDate;
-    
-    @JsonProperty("isDeleted")
-    private Boolean isDeleted;
     
     @Data
     @NoArgsConstructor
