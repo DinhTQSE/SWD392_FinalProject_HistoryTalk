@@ -58,3 +58,4 @@ node_modules/
 application-dev.yml
 application-prod.yml
 .vscode
+diagram
