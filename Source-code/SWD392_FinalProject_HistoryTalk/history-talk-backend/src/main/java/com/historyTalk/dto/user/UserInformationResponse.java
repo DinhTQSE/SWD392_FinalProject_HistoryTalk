@@ -1,16 +1,13 @@
 package com.historyTalk.dto.user;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-
 import java.util.UUID;
 
 @Data
 @Builder
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserInformationResponse {
     private UUID userId;
     private String full_name;
