@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -109,7 +110,7 @@ public class HistoricalContextServiceImpl implements HistoricalContextService {
                 .location(request.getLocation())
                 .imageUrl(request.getImageUrl())
                 .videoUrl(request.getVideoUrl())
-            .isDraft(request.getIsDraft() != null ? request.getIsDraft() : true)
+            .isDraft(request.getIsDraft() != null ? request.getIsDraft() : false)
                 .createdBy(user)
                 .build();
 
@@ -281,6 +282,33 @@ public class HistoricalContextServiceImpl implements HistoricalContextService {
         }
         
         log.info("Historical context soft-deleted successfully with ID: {}", contextId);
+    }
+
+    @Transactional
+    public void publishContext(String contextId, String userId, String userRole) {
+        log.info("Publishing historical context with ID: {}", contextId);
+
+        HistoricalContext context = contextRepository.findById(UUID.fromString(contextId))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Historical context not found with ID: " + contextId
+                ));
+
+        if (context.getDeletedAt() != null) {
+            throw new ResourceNotFoundException("Historical context not found with ID: " + contextId);
+        }
+
+        if (!isStaffOrAdmin(userRole)) {
+            throw new InvalidRequestException("You do not have permission to publish this historical context");
+        }
+
+        if (Boolean.FALSE.equals(context.getIsDraft())) {
+            return;
+        }
+
+        context.setIsDraft(false);
+        context.setUpdatedDate(LocalDateTime.now());
+        contextRepository.save(context);
+        log.info("Historical context published successfully with ID: {}", contextId);
     }
 
     @Transactional(readOnly = true)

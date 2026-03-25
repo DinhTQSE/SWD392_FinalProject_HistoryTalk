@@ -56,5 +56,5 @@ public class CreateHistoricalContextRequest {
     private String videoUrl;
 
     @JsonProperty("isDraft")
-    private Boolean isDraft = true;
+    private Boolean isDraft = false;
 }

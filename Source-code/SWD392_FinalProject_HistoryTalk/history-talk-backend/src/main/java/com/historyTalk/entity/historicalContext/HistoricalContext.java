@@ -72,7 +72,7 @@ public class HistoricalContext {
 
     @Builder.Default
     @Column(name = "is_draft", nullable = false)
-    private Boolean isDraft = true;
+    private Boolean isDraft = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
@@ -100,5 +100,15 @@ public class HistoricalContext {
     @Builder.Default
     @OneToMany(mappedBy = "historicalContext", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Quiz> quizzes = new ArrayList<>();
+
+    @PrePersist
+    void ensureDefaults() {
+        if (isDraft == null) {
+            isDraft = false;
+        }
+        if (beforeTCN == null) {
+            beforeTCN = false;
+        }
+    }
 
 }

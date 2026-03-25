@@ -26,6 +26,8 @@ public interface HistoricalContextService {
 
     void softDeleteContext(String contextId, String userId, String userRole);
 
+    void publishContext(String contextId, String userId, String userRole);
+
     List<HistoricalContextResponse> getDeletedContexts();
 
     void restoreContext(String contextId);

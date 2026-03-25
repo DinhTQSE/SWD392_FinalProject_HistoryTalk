@@ -159,4 +159,24 @@ public class HistoricalContextController {
 
         return ResponseEntity.ok(ApiResponse.success(null, "Historical context soft-deleted successfully"));
     }
+
+    /**
+     * PATCH /v1/historical-contexts/{contextId}/publish
+     * Publish a historical context (mark draft=false)
+     */
+    @PatchMapping("/{contextId}/publish")
+    @PreAuthorize("hasRole('STAFF') or hasRole('ADMIN')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Publish a historical context",
+               description = "Mark a historical context as published (draft=false). Staff/Admin only.")
+    public ResponseEntity<ApiResponse<?>> publishContext(
+            @PathVariable String contextId) {
+
+        log.info("PATCH /v1/historical-contexts/{}/publish", contextId);
+        String userId = SecurityUtils.getUserId();
+        String userRole = SecurityUtils.getRoleName();
+        contextService.publishContext(contextId, userId, userRole);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Historical context published successfully"));
+    }
 }
