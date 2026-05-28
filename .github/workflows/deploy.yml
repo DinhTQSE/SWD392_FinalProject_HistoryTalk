@@ -20,7 +20,7 @@ jobs:
       - name: Build and Push Java
         uses: docker/build-push-action@v4
         with:
-          context: .
+          context: ./Source-code/SWD392_FinalProject_HistoryTalk/history-talk-backend-Java
           file: ./Source-code/SWD392_FinalProject_HistoryTalk/history-talk-backend-Java/Dockerfile
           push: true
           tags: ghcr.io/dinhtqse/historytalk-java:latest
@@ -29,7 +29,7 @@ jobs:
       - name: Build and Push AI
         uses: docker/build-push-action@v4
         with:
-          context: .
+          context: ./Source-code/SWD392_FinalProject_HistoryTalk/history-talk-backend-AI
           file: ./Source-code/SWD392_FinalProject_HistoryTalk/history-talk-backend-AI/Dockerfile
           push: true
           tags: ghcr.io/dinhtqse/historytalk-ai:latest
