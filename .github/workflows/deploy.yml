@@ -37,15 +37,15 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to Server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            echo "${{ secrets.MY_PAT }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+    script: |
+            # Đăng nhập
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+            
+            # 1. Bắt buộc kéo image mới nhất về (kể cả khi tag vẫn là latest)
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            
+            # 2. Ép buộc tạo lại container ngay cả khi cấu hình không đổi
+            docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
+            
+            # 3. Dọn rác
             docker image prune -f
