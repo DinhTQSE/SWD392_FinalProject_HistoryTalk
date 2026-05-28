@@ -1,0 +1,32 @@
+name: Deploy HistoryTalk
+
+on:
+  push:
+    branches: [ deployment ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          # Script thực hiện trên server
+          script: |
+            # 1. Đăng nhập vào GHCR để lấy quyền pull image
+            echo "${{ secrets.MY_PAT }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+            
+            # 2. Pull các image mới nhất đã được build
+            docker compose -f docker-compose.prod.yml pull
+            
+            # 3. Khởi động lại container với image mới (Zero-downtime)
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            
+            # 4. Dọn dẹp image cũ để tiết kiệm dung lượng server
+            docker image prune -f       
