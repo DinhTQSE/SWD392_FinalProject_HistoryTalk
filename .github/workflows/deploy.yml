@@ -1,32 +1,51 @@
-name: Deploy HistoryTalk
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ deployment ]
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.MY_PAT }}
+      
+      # Build Java
+      - name: Build and Push Java
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Source-code/SWD392_FinalProject_HistoryTalk/history-talk-backend-Java/Dockerfile
+          push: true
+          tags: ghcr.io/dinhtqse/historytalk-java:latest
 
-      - name: Deploy to Server via SSH
+      # Build AI
+      - name: Build and Push AI
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Source-code/SWD392_FinalProject_HistoryTalk/history-talk-backend-AI/Dockerfile
+          push: true
+          tags: ghcr.io/dinhtqse/historytalk-ai:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          # Script thực hiện trên server
           script: |
-            # 1. Đăng nhập vào GHCR để lấy quyền pull image
             echo "${{ secrets.MY_PAT }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
-            
-            # 2. Pull các image mới nhất đã được build
             docker compose -f docker-compose.prod.yml pull
-            
-            # 3. Khởi động lại container với image mới (Zero-downtime)
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
-            
-            # 4. Dọn dẹp image cũ để tiết kiệm dung lượng server
-            docker image prune -f       
+            docker image prune -f
