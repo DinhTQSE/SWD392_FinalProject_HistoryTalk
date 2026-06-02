@@ -51,14 +51,14 @@ public class AiServiceClient {
                                 .baseUrl(aiServiceUrl);
 
                 this.aiServiceUrlStr = aiServiceUrl;
-                
-                String authHeader = null;
+                this.basicAuthHeader = null;
+
                 // Add Basic Auth header if credentials are configured (e.g. Nginx auth_basic)
                 if (aiServiceUsername != null && !aiServiceUsername.isBlank()) {
                         String credentials = Base64.getEncoder().encodeToString(
                                         (aiServiceUsername + ":" + aiServicePassword).getBytes(StandardCharsets.UTF_8));
-                        authHeader = "Basic " + credentials;
-                        builder.defaultHeader(HttpHeaders.AUTHORIZATION, authHeader);
+                        this.basicAuthHeader = "Basic " + credentials;
+                        builder.defaultHeader(HttpHeaders.AUTHORIZATION, this.basicAuthHeader);
                         log.info("AI service client configured with Basic Auth for user: {}", aiServiceUsername);
                 }
                 this.basicAuthHeader = authHeader;
