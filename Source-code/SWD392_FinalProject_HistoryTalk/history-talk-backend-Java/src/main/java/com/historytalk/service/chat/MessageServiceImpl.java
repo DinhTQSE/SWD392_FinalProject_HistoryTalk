@@ -313,8 +313,7 @@ public class MessageServiceImpl implements MessageService {
                         }
 
                         // Send final event to let client know remaining tokens
-                        String reqMsgType = request.getMessageType() != null ? request.getMessageType() : "TEXT";
-                        emitter.send(SseEmitter.event().data("{\"type\":\"done\",\"remainingTokens\":" + remainingTokens + ",\"messageType\":\"" + reqMsgType + "\"}"));
+                        emitter.send(SseEmitter.event().data("{\"type\":\"done\",\"remainingTokens\":" + remainingTokens + "}"));
                         emitter.complete();
                     } catch (Exception e) {
                         log.error("Error completing stream: {}", e.getMessage());
