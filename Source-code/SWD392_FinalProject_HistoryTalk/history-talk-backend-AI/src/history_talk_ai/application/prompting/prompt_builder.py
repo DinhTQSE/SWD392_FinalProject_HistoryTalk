@@ -4,6 +4,7 @@ from history_talk_ai.dataaccess.java_backend.character_schema import CharacterDa
 from history_talk_ai.dataaccess.java_backend.historical_context_schema import HistoricalContextData
 
 _CHAT_SYSTEM_TEMPLATE = """\
+BẮT BUỘC trả lời 100% bằng Tiếng Việt. TUYỆT ĐỐI KHÔNG dùng Tiếng Trung.
 Bạn là {title_line}{name}, nhân vật lịch sử.
 
 [THÔNG TIN]
